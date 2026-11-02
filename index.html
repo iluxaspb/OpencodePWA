@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101014">
+<title>OpenCode Mobile</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="stylesheet" href="./css/app.css">
+</head>
+<body>
+  <!-- Экран подключения -->
+  <section id="screen-connect" class="screen connect-screen" aria-label="Подключение к серверу">
+    <form id="connect-form" class="card" novalidate>
+      <h1 class="brand-title">OpenCode Mobile</h1>
+      <p class="subtitle">Мобильный доступ к серверу OpenCode</p>
+
+      <label class="field">
+        <span class="field-label">Режим</span>
+        <select id="mode-select" name="mode" class="input">
+          <option value="mock">Mock (имитация, без сервера)</option>
+          <option value="opencode">OpenCode (WS)</option>
+        </select>
+      </label>
+
+      <div id="net-fields" class="net-fields">
+        <label class="field">
+          <span class="field-label">Схема</span>
+          <select id="scheme-select" name="scheme" class="input">
+            <option value="http">http</option>
+            <option value="https">https</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-label">Хост</span>
+          <input id="host-input" name="host" class="input" type="text"
+                 placeholder="192.168.1.50" autocomplete="off">
+        </label>
+        <label class="field">
+          <span class="field-label">Порт</span>
+          <input id="port-input" name="port" class="input" type="text"
+                 inputmode="numeric" placeholder="10999" autocomplete="off">
+        </label>
+        <label class="field">
+          <span class="field-label">Логин</span>
+          <input id="login-input" name="login" class="input" type="text"
+                 autocomplete="username" placeholder="ivanov">
+        </label>
+        <label class="field">
+          <span class="field-label">Пароль</span>
+          <input id="password-input" name="password" class="input" type="password"
+                 autocomplete="new-password" placeholder="••••••••">
+        </label>
+      </div>
+
+      <button id="connect-btn" class="btn btn-primary" type="submit">Подключиться</button>
+      <p id="connect-hint" class="hint">Пароль хранится только в памяти вкладки и никогда не сохраняется.</p>
+    </form>
+  </section>
+
+  <!-- Экран чата -->
+  <section id="screen-chat" class="screen chat-screen" aria-label="Чат" hidden>
+    <header class="chat-header">
+      <div class="header-left">
+        <span id="status-dot" class="status-dot"></span>
+        <span id="status-text" class="status-text">Загрузка…</span>
+      </div>
+      <div class="header-right">
+        <select id="session-select" class="input small" aria-label="Сессия"></select>
+        <span id="user-name" class="user-name"></span>
+        <button id="font-minus" class="btn btn-ghost" type="button" aria-label="Уменьшить текст" title="Уменьшить текст">A&#8722;</button>
+        <button id="font-plus" class="btn btn-ghost" type="button" aria-label="Увеличить текст" title="Увеличить текст">A+</button>
+        <button id="font-reset" class="btn btn-ghost" type="button" aria-label="Сбросить размер текста" title="Сбросить размер текста">A</button>
+        <button id="new-session-btn" class="btn btn-ghost" type="button" title="Начать новую сессию">Новая сессия</button>
+        <button id="logout-btn" class="btn btn-ghost btn-danger-text" type="button" title="Отключиться и выйти">Выход</button>
+      </div>
+    </header>
+
+    <main id="messages" class="messages" aria-live="polite"></main>
+
+    <section id="tts-panel" class="tts-panel" aria-label="Озвучивание ответа">
+      <div class="tts-row">
+        <button id="tts-speak" class="btn btn-secondary" type="button">Прочитать</button>
+        <button id="tts-pause" class="btn btn-secondary" type="button">Пауза</button>
+        <button id="tts-stop" class="btn btn-secondary" type="button">Стоп</button>
+        <button id="tts-voices" class="btn btn-secondary btn-compact" type="button">Голоса</button>
+      </div>
+      <div class="tts-row tts-controls">
+        <span class="tts-label">Скорость</span>
+        <input id="tts-rate" type="range" min="0.5" max="2" step="0.1" value="1"
+               aria-label="Скорость озвучивания">
+        <span id="tts-rate-val" class="tts-value">1.0&#215;</span>
+        <label class="tts-select-label">
+          <span class="tts-label">Язык</span>
+          <select id="tts-lang" class="input small">
+            <option value="auto">Авто</option>
+            <option value="ru">Русский</option>
+            <option value="en">Английский</option>
+          </select>
+        </label>
+        <label class="tts-check-label">
+          <input id="tts-code" type="checkbox">
+          <span class="tts-label">Читать код</span>
+        </label>
+      </div>
+      <div id="voices-panel" class="voices-panel" hidden></div>
+    </section>
+
+    <footer class="chat-input-bar">
+      <button id="mic-btn" class="btn mic-btn" type="button" aria-label="Голосовой ввод"
+              title="Голосовой ввод" disabled>&#127908;</button>
+      <textarea id="chat-input" class="chat-input" rows="1"
+                placeholder="Сообщение…" aria-label="Сообщение"></textarea>
+      <button id="send-btn" class="btn btn-primary send-btn" type="button">Отправить</button>
+      <button id="stop-btn" class="btn btn-danger stop-btn" type="button">Стоп</button>
+    </footer>
+  </section>
+
+  <div id="toast" class="toast" role="status" aria-live="assertive" hidden></div>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
