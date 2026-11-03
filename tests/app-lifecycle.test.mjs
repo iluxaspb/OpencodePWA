@@ -36,7 +36,7 @@ function harness() {
     createRecognizer: () => ({ destroy() {}, isRunning: () => false, stop() {}, start() {} }),
     isSpeechRecognitionSupported: () => false,
   };
-  vm.runInNewContext(`${source}\nglobalThis.__test = { state, chooseSession, send, logout, poll, newSession };`, context);
+  vm.runInNewContext(`${source}\nglobalThis.__test = { state, chooseSession, send, logout, poll, newSession, status };`, context);
   return { api: context.__test, elements, timers };
 }
 
@@ -56,6 +56,54 @@ test('polling запускает следующий запрос только п
   waits[1].resolve([]); await tick;
   assert.equal(maximum, 1);
   assert.equal(timers.size, 1, 'следующий таймер поставлен после завершения запроса');
+});
+
+test('успешный poll после сетевой ошибки возвращает online текущей сессии', async t => {
+  const { api, elements } = harness();
+  const statusText = () => elements.get('status-text').textContent;
+  const statusKind = () => elements.get('status-dot').className;
+  await t.test('сбой затем восстановление', async () => {
+    api.state.client = { listMessages: async () => { throw new Error('offline'); } };
+    api.state.session = 's';
+    await api.poll();
+    assert.equal(statusText(), 'Соединение прервано');
+    assert.equal(statusKind(), 'status-dot offline');
+    api.state.client = { listMessages: async () => [{ type: 'assistant', content: [{ type: 'text', text: 'ok' }] }] };
+    await api.poll();
+    assert.equal(statusText(), 'Подключено');
+    assert.equal(statusKind(), 'status-dot online');
+  });
+  await t.test('поздняя ошибка предыдущей сессии не меняет статус текущей', async () => {
+    const wait = deferred();
+    api.state.generation = 0; api.state.session = 'old';
+    api.state.client = { listMessages: () => wait.promise };
+    const late = api.poll();
+    api.state.generation++; api.state.session = 'new';
+    wait.reject(new Error('late offline')); await late;
+    assert.equal(statusKind(), 'status-dot online', 'статус не сброшен в offline поздней ошибкой');
+  });
+  await t.test('поздний успех предыдущей сессии не поднимает online после ошибки', async () => {
+    const wait = deferred();
+    api.state.generation = 0; api.state.session = 'old';
+    api.state.client = { listMessages: () => wait.promise };
+    const late = api.poll();
+    api.state.generation++; api.state.session = 'new';
+    api.state.client = { listMessages: async () => { throw new Error('offline'); } };
+    await api.poll();
+    assert.equal(statusKind(), 'status-dot offline');
+    wait.resolve([]); await late;
+    assert.equal(statusKind(), 'status-dot offline', 'поздний успех не должен переключать статус');
+  });
+  await t.test('logout не возрождает online', async () => {
+    const wait = deferred();
+    api.state.client = { listMessages: () => wait.promise, disconnect: async () => {} };
+    api.state.session = 's';
+    const running = api.poll();
+    await api.logout();
+    api.status('Не подключено', 'offline');
+    wait.resolve([]); await running;
+    assert.equal(statusKind(), 'status-dot offline');
+  });
 });
 
 test('logout во время отложенного poll не возрождает таймер', async () => {

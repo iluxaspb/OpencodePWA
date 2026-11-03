@@ -35,8 +35,15 @@ function schedulePoll(gen, id) {
 async function poll() {
   if (!state.client || !state.session) return;
   const gen = state.generation, id = state.session;
-  try { const result = await state.client.listMessages(id); if (gen !== state.generation || id !== state.session) return; renderMessages(result?.data || result || []); }
-  catch (e) { if (gen === state.generation) status('Соединение прервано', 'offline'); }
+  try {
+    const result = await state.client.listMessages(id);
+    if (gen !== state.generation || id !== state.session || !state.client) return;
+    renderMessages(result?.data || result || []);
+    status('Подключено', 'online');
+  } catch (e) {
+    if (gen !== state.generation || id !== state.session || !state.client) return;
+    status('Соединение прервано', 'offline');
+  }
 }
 async function chooseSession(id) {
   state.session = id; state.generation++; const gen = state.generation; state.busy = false; state.transitioning = false; state.reply = null; $('send-btn').disabled = false; $('send-btn').hidden = false; renderMessages([]); stopPolling();
