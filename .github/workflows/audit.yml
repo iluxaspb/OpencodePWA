@@ -1,0 +1,23 @@
+name: PWA audit
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test tests/*.test.mjs
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+      - name: Mobile Chromium regression
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: |
+          python3 -m http.server 8321 --bind 127.0.0.1 >/tmp/pwa-http.log 2>&1 &
+          "$CHROME_PATH" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --remote-debugging-port=9222 --user-data-dir=/tmp/pwa-browser about:blank >/tmp/pwa-chrome.log 2>&1 &
+          node -e 'async function ready(){for(let i=0;i<60;i++){try{const a=await fetch("http://127.0.0.1:8321/");const b=await fetch("http://127.0.0.1:9222/json/version");if(a.ok&&b.ok)return;}catch{}await new Promise(r=>setTimeout(r,500));}throw Error("Local test services unavailable");}ready().catch(e=>{console.error(e);process.exit(1)});'
+          node tests/mobile-browser.cjs

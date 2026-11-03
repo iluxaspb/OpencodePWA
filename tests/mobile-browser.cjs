@@ -2,6 +2,9 @@
 const assert = require('node:assert/strict');
 const { setTimeout: sleep } = require('node:timers/promises');
 const port = Number(process.env.CDP_PORT || 9222);
+const appUrl = process.env.APP_URL || 'http://127.0.0.1:8321/';
+const appOrigin = new URL(appUrl).origin;
+if (!['127.0.0.1', 'localhost'].includes(new URL(appUrl).hostname)) throw new Error('Browser regression clears storage: local test origins only');
 let id = 0, ws;
 async function cdp(method, params = {}) { const n=++id; ws.send(JSON.stringify({id:n,method,params})); return await new Promise((resolve,reject)=>{ const timer=setTimeout(()=>{ws.removeEventListener('message',fn);reject(new Error(`CDP timeout (${method})`));},10000); const fn=(raw)=>{const m=JSON.parse(raw.data ?? raw); if(m.id!==n)return; clearTimeout(timer); ws.removeEventListener('message',fn); m.error?reject(new Error(m.error.message)):resolve(m.result||{});}; ws.addEventListener('message',fn); }); }
 async function ev(expr, awaitPromise=false) { const r=await cdp('Runtime.evaluate',{expression:expr,returnByValue:true,awaitPromise}); if(r.exceptionDetails) throw new Error(r.exceptionDetails.text||'page exception'); return r.result?.value; }
@@ -10,13 +13,13 @@ async function click(id){ await ev(`document.getElementById(${JSON.stringify(id)
 async function waitSendReady(ms=10000) { await waitFor(`(()=>{const b=document.getElementById('send-btn');return !!b&&!b.hidden&&!b.disabled})()`,ms); }
 let out={}, exceptions=[];
 (async()=>{
- const list=await (await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent('http://127.0.0.1:8321/opencode-mobile/index.html')}`,{method:'PUT'})).json();
+ const list=await (await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(appUrl)}`,{method:'PUT'})).json();
  ws=new WebSocket(list.webSocketDebuggerUrl); await new Promise((r,j)=>{ws.addEventListener('open',r);ws.addEventListener('error',j)}); await cdp('Runtime.enable'); await cdp('Log.enable'); await cdp('Page.enable'); await cdp('Network.enable'); await cdp('Emulation.setDeviceMetricsOverride',{width:393,height:852,deviceScaleFactor:1,mobile:true});
  ws.addEventListener('message',raw=>{const m=JSON.parse(raw.data ?? raw); if(m.method==='Runtime.exceptionThrown')exceptions.push(m.params.exceptionDetails?.text||'exception');});
    await cdp('Network.setCacheDisabled',{cacheDisabled:true});
-   await cdp('Storage.clearDataForOrigin',{origin:'http://127.0.0.1:8321',storageTypes:'all'});
+   await cdp('Storage.clearDataForOrigin',{origin:appOrigin,storageTypes:'all'});
   await cdp('Page.navigate',{url:'about:blank'});
-  await cdp('Page.navigate',{url:'http://127.0.0.1:8321/opencode-mobile/index.html'}); await waitFor(`document.readyState==='complete'`); await sleep(500);
+  await cdp('Page.navigate',{url:appUrl}); await waitFor(`document.readyState==='complete'`); await sleep(500);
   Object.assign(out,{viewport:await ev('({w:innerWidth,h:innerHeight,scroll:document.documentElement.scrollWidth>innerWidth})'), title:await ev('document.title'), connect:await ev('!!document.getElementById("connect-form")')});
  assert.equal(out.viewport.w,393); assert.equal(out.viewport.h,852); assert.equal(out.connect,true); assert.equal(out.viewport.scroll,false,'horizontal overflow on connect');
   await ev("document.getElementById('mode-select').value='mock'; document.getElementById('mode-select').dispatchEvent(new Event('change',{bubbles:true}))"); await click('connect-btn'); await waitFor('!document.getElementById("screen-chat").hidden'); await waitSendReady(); await sleep(200);
