@@ -15,7 +15,8 @@ const { setTimeout: sleep } = require('node:timers/promises');
 const { once } = require('node:events');
 
 const ROOT = path.resolve(__dirname, '..');
-const CHROMIUM = '/usr/bin/chromium';
+const CHROMIUM = process.env.CHROME_PATH || '/usr/bin/chromium';
+const TMP_ROOT = process.env.TMPDIR || '/tmp/opencode';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -114,7 +115,8 @@ async function main() {
   const appUrl = `http://127.0.0.1:${staticPort}/`;
   const appOrigin = new URL(appUrl).origin;
 
-  const profileDir = fs.mkdtempSync(path.join('/tmp/opencode', 'pollrec-chrome-'));
+  fs.mkdirSync(TMP_ROOT, { recursive: true });
+  const profileDir = fs.mkdtempSync(path.join(TMP_ROOT, 'pollrec-chrome-'));
   const cdpPort = await getFreePort();
   // stdio полностью ignore: нечитаемый stderr может заполнить буфер и заблокировать Chromium.
   const chrome = spawn(CHROMIUM, [

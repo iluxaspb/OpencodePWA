@@ -13,6 +13,12 @@ jobs:
       - run: node --test tests/*.test.mjs
       - uses: browser-actions/setup-chrome@v1
         id: chrome
+      - name: Poll recovery browser regression
+        timeout-minutes: 2
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+          TMPDIR: ${{ runner.temp }}
+        run: node tests/poll-recovery-browser.cjs
       - name: Mobile Chromium regression
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
